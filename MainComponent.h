@@ -37,6 +37,10 @@ public:
             tableDelta = (float)samplesWhenLoopStarted / (float)numberOfSamplesToLoop;
         };
 
+        addAndMakeVisible(tapeButton);
+        tapeButton.setButtonText("Tape");
+        tapeButton.onClick = [this] { tape = !tape; };
+
         setSize(600, 100);
         setAudioChannels(2, 2);
 
@@ -46,7 +50,7 @@ public:
         tableDelta = 1;
         currentIndex = 1;
         looping = false;
-        tape = true;
+        tape = false;
         loopOutBuffer = loopBuffer->getWritePointer(0, bufferPosition);
     }
 
@@ -147,7 +151,8 @@ public:
 
         loopLabel.setBounds(10, 30, 90, 20);
         loopSlider.setBounds(100, 30, getWidth() - 110, 20);
-        loopButton.setBounds(10, 50, 90, 20);
+        loopButton.setBounds(10, 50, 90, 20); 
+        tapeButton.setBounds(110, 50, 90, 20);
     }
 
 private:
@@ -156,6 +161,7 @@ private:
     juce::Slider loopSlider;
     juce::Label loopLabel;
     juce::TextButton loopButton;
+    juce::TextButton tapeButton;
 
     juce::AudioBuffer<float>* loopBuffer;
     float* loopOutBuffer;

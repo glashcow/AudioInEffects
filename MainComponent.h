@@ -6,7 +6,6 @@
 class MainComponent : public juce::AudioAppComponent
 {
 public:
-    //==============================================================================
     MainComponent()
     {
         sizeOfLoopBuff = 480000;
@@ -22,7 +21,7 @@ public:
         loopSlider.onValueChange = [this] {
             numberOfSamplesToLoop = (int)loopSlider.getValue();
             bufferPosition = sizeOfLoopBuff - numberOfSamplesToLoop;
-            tableDelta = (float)numberOfSamplesToLoop / (float)samplesWhenLoopStarted;
+            tableDelta = (float)samplesWhenLoopStarted / (float)numberOfSamplesToLoop;
         };
 
         loopSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 100, 20);
@@ -35,7 +34,7 @@ public:
             looping = !looping; 
             samplesWhenLoopStarted = (int)loopSlider.getValue();
             currentIndex = sizeOfLoopBuff - samplesWhenLoopStarted;
-            tableDelta = (float)numberOfSamplesToLoop / (float)samplesWhenLoopStarted;
+            tableDelta = (float)samplesWhenLoopStarted / (float)numberOfSamplesToLoop;
         };
 
         setSize(600, 100);
@@ -98,9 +97,8 @@ public:
                     bufferToFill.startSample);
                 auto* outBuffer = bufferToFill.buffer->getWritePointer(channel, bufferToFill.startSample);
 
-
                 for (auto sample = 0; sample < bufferToFill.numSamples; ++sample) {
-                    outBuffer[sample] = inBuffer[sample] * random.nextFloat() * level;
+                    outBuffer[sample] = inBuffer[sample]  * level;
                     bufferPosition = bufferPosition % sizeOfLoopBuff;
                     loopOutBuffer[bufferPosition] = outBuffer[sample];
                     bufferPosition++;
@@ -153,7 +151,6 @@ public:
     }
 
 private:
-    juce::Random random;
     juce::Slider levelSlider;
     juce::Label levelLabel;
     juce::Slider loopSlider;

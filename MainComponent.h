@@ -22,7 +22,7 @@ public:
         loopSlider.onValueChange = [this] {
             numberOfSamplesToLoop = (int)loopSlider.getValue();
             bufferPosition = sizeOfLoopBuff - numberOfSamplesToLoop;
-            tableDelta = samplesWhenLoopStarted / numberOfSamplesToLoop;
+            tableDelta = (float)numberOfSamplesToLoop / (float)samplesWhenLoopStarted;
         };
 
         loopSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 100, 20);
@@ -35,7 +35,7 @@ public:
             looping = !looping; 
             samplesWhenLoopStarted = (int)loopSlider.getValue();
             currentIndex = sizeOfLoopBuff - samplesWhenLoopStarted;
-            tableDelta = samplesWhenLoopStarted / numberOfSamplesToLoop;
+            tableDelta = (float)numberOfSamplesToLoop / (float)samplesWhenLoopStarted;
         };
 
         setSize(600, 100);

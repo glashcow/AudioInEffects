@@ -10,6 +10,7 @@ public:
     MainComponent()
     {
         sizeOfLoopBuff = 480000;
+
         levelSlider.setRange(0.0, 0.25);
         levelSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 100, 20);
         levelLabel.setText("Noise Level", juce::dontSendNotification);
@@ -21,6 +22,7 @@ public:
         loopSlider.onValueChange = [this] {
             numberOfSamplesToLoop = (int)loopSlider.getValue();
             bufferPosition = sizeOfLoopBuff - numberOfSamplesToLoop;
+            tableDelta = samplesWhenLoopStarted / numberOfSamplesToLoop;
         };
 
         loopSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 100, 20);
@@ -31,7 +33,9 @@ public:
         loopButton.setButtonText("Looooooop");
         loopButton.onClick = [this] {
             looping = !looping; 
-            //loopButton.setColour();
+            samplesWhenLoopStarted = (int)loopSlider.getValue();
+            currentIndex = sizeOfLoopBuff - samplesWhenLoopStarted;
+            tableDelta = samplesWhenLoopStarted / numberOfSamplesToLoop;
         };
 
         setSize(600, 100);
@@ -39,9 +43,12 @@ public:
 
         loopBuffer = new juce::AudioBuffer<float>(2, sizeOfLoopBuff);
         bufferPosition = 0;
+        samplesWhenLoopStarted = 1;
+        tableDelta = 1;
+        currentIndex = 1;
         looping = false;
+        tape = true;
         loopOutBuffer = loopBuffer->getWritePointer(0, bufferPosition);
-        
     }
 
     ~MainComponent() override
@@ -64,43 +71,69 @@ public:
         for (auto channel = 0; channel < maxOutputChannels; ++channel)
         {
             if (!looping) {
-                if ((!activeOutputChannels[channel]) || maxInputChannels == 0)
-                {
-                    bufferToFill.buffer->clear(channel, bufferToFill.startSample, bufferToFill.numSamples);
-                }
-                else
-                {
-                    auto actualInputChannel = channel % maxInputChannels;
-
-                    if (!activeInputChannels[channel])
-                    {
-                        bufferToFill.buffer->clear(channel, bufferToFill.startSample, bufferToFill.numSamples);
-                    }
-                    else
-                    {
-                        auto* inBuffer = bufferToFill.buffer->getReadPointer(actualInputChannel,
-                            bufferToFill.startSample);
-                        auto* outBuffer = bufferToFill.buffer->getWritePointer(channel, bufferToFill.startSample);
-                        
-
-                        for (auto sample = 0; sample < bufferToFill.numSamples; ++sample) {
-                            outBuffer[sample] = inBuffer[sample] * random.nextFloat() * level;
-                            bufferPosition = bufferPosition % sizeOfLoopBuff;
-                            loopOutBuffer[bufferPosition] = outBuffer[sample];
-                            bufferPosition++;
-                        }
-                    }
-                }
+                normalPlaying(activeOutputChannels, activeInputChannels, channel, maxInputChannels, bufferToFill, level); 
             }
             else {
+                tape ? loopedTape(bufferToFill, channel): loopedNoTape(bufferToFill, channel);
+            }
+        }
+    }
+
+    void normalPlaying(juce::BigInteger activeOutputChannels, juce::BigInteger activeInputChannels, int channel, int maxInputChannels, const juce::AudioSourceChannelInfo& bufferToFill, float level) {
+        if ((!activeOutputChannels[channel]) || maxInputChannels == 0)
+        {
+            bufferToFill.buffer->clear(channel, bufferToFill.startSample, bufferToFill.numSamples);
+        }
+        else
+        {
+            auto actualInputChannel = channel % maxInputChannels;
+
+            if (!activeInputChannels[channel])
+            {
+                bufferToFill.buffer->clear(channel, bufferToFill.startSample, bufferToFill.numSamples);
+            }
+            else
+            {
+                auto* inBuffer = bufferToFill.buffer->getReadPointer(actualInputChannel,
+                    bufferToFill.startSample);
                 auto* outBuffer = bufferToFill.buffer->getWritePointer(channel, bufferToFill.startSample);
+
+
                 for (auto sample = 0; sample < bufferToFill.numSamples; ++sample) {
-                    if (bufferPosition >= sizeOfLoopBuff) {
-                        bufferPosition = sizeOfLoopBuff - numberOfSamplesToLoop;
-                    }
-                    outBuffer[sample] = loopOutBuffer[bufferPosition];
-                    ++bufferPosition;
+                    outBuffer[sample] = inBuffer[sample] * random.nextFloat() * level;
+                    bufferPosition = bufferPosition % sizeOfLoopBuff;
+                    loopOutBuffer[bufferPosition] = outBuffer[sample];
+                    bufferPosition++;
                 }
+            }
+        }
+    }
+
+    void loopedNoTape(const juce::AudioSourceChannelInfo& bufferToFill, int channel) {
+        auto* outBuffer = bufferToFill.buffer->getWritePointer(channel, bufferToFill.startSample);
+        for (auto sample = 0; sample < bufferToFill.numSamples; ++sample) {
+            if (bufferPosition >= sizeOfLoopBuff) {
+                bufferPosition = sizeOfLoopBuff - numberOfSamplesToLoop;
+            }
+            outBuffer[sample] = loopOutBuffer[bufferPosition];
+            ++bufferPosition;
+        }
+    }
+
+    void loopedTape(const juce::AudioSourceChannelInfo& bufferToFill, int channel) {
+        auto* outBuffer = bufferToFill.buffer->getWritePointer(channel, bufferToFill.startSample);
+        for(auto sample = 0; sample < bufferToFill.numSamples; ++sample) {
+            auto index0 = (unsigned int)currentIndex;
+            auto index1 = index0 + 1;
+
+            auto frac = currentIndex - (float)index0;
+            auto value0 = loopOutBuffer[index0];
+            auto value1 = loopOutBuffer[index1];
+            auto currentSample = value0 + frac * (value1 - value0);
+            outBuffer[sample] = currentSample;
+            currentIndex += tableDelta;
+            if (currentIndex >= sizeOfLoopBuff) {
+                currentIndex = sizeOfLoopBuff - numberOfSamplesToLoop;
             }
         }
     }
@@ -129,9 +162,10 @@ private:
 
     juce::AudioBuffer<float>* loopBuffer;
     float* loopOutBuffer;
+    float tableDelta, currentIndex;
 
-    int bufferPosition, numberOfSamplesToLoop, sizeOfLoopBuff;
-    bool looping;
+    int bufferPosition, numberOfSamplesToLoop, sizeOfLoopBuff, samplesWhenLoopStarted;
+    bool looping, tape;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
 };

@@ -1,5 +1,7 @@
 # AudioInEffects
 
+- Fixed buttons and switched things 
+
 - Tape like effects work
 
 - Added wavetable like tape effects, but you cant go fster than original speed, will noodle about 
